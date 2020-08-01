@@ -5,15 +5,21 @@ import os
 
 class DataStore(object):
     def __init__(self, input_dir = "", output_dir_path = ""):
-        self._index_name = unicode(os.path.basename(input_dir))
-        self._in_dir = unicode(os.path.abspath(os.path.normpath(input_dir)))
-        self._out_dir = unicode(os.path.abspath(os.path.normpath(output_dir_path)))
+        in_dir_fix = input_dir
+        out_dir_fix = output_dir_path
+        if not isinstance(input_dir, bytes):
+            in_dir_fix = str(input_dir).encode(encoding="utf-8")
+        if not isinstance(output_dir_path, bytes):
+            out_dir_fix = str(output_dir_path).encode(encoding="utf-8")
+        self._index_name = os.path.basename(in_dir_fix.decode("utf-8"))
+        self._in_dir = os.path.abspath(os.path.normpath(in_dir_fix.decode("utf-8")))
+        self._out_dir = os.path.abspath(os.path.normpath(out_dir_fix.decode("utf-8")))
         self._my_data = {"files": [], "file_count" : 0, "GB" : 0.0}
         self._bad_data = {"bad_files" : [], "bad_files_count" : 0 }
         
     def _scan_dir(self, in_dir):
         has_dirs = False
-        if (os.path.isdir(in_dir)):
+        if os.path.isdir(in_dir):
             has_dirs = True
             
         while has_dirs:
@@ -22,14 +28,16 @@ class DataStore(object):
             except Exception as exc:
                 raise exc
             # run files first
-            if (walker):
+            if walker:
                 for base_path, dirs, files in walker:
-                    print("Checking basepath",base_path)
+                    # print("Checking basepath", base_path)
                     # print("Dirs", dirs)
                     # print("Files",files)
                     for file in files:
                         # has the files in multiple ways
-                        full_path = unicode(os.path.abspath(os.path.normpath(os.path.join(base_path, file))))
+                        if ":" in file or file.startswith("_"):
+                            print("*************************", os.path.join(base_path, file))
+                        full_path = os.path.join(base_path, file)
                         try:
                             path_hash = hashlib.md5(full_path).hexdigest()
                             file_hash = hashlib.md5(file).hexdigest()
@@ -58,21 +66,21 @@ class DataStore(object):
                             self._my_data["GB"] += (file_in_mb / 1024)
                             self._write_data(file_data, str(path_hash))
                         except:
-                            self._bad_data["bad_files"].append(unicode(full_path))
+                            self._bad_data["bad_files"].append(full_path)
                             self._bad_data["bad_files_count"] += 1
                     if (not dirs):
                         # kill the process if no dirs exist
                         has_dirs = False
                     else:
-                        print dirs
+                        # print(dirs)
                         for dir in dirs:
-                            new_path = unicode(os.path.abspath(os.path.normpath(os.path.join(base_path, dir))))
+                            new_path = os.path.abspath(os.path.normpath(os.path.join(base_path, dir)))
                             # print("Checking new dir",new_path)
                             try:
                                 self._scan_dir(new_path)
                             except:
                                 # print("bad file",new_path)
-                                self._bad_data["bad_files"].append(unicode(new_path))
+                                self._bad_data["bad_files"].append(new_path)
                                 self._bad_data["bad_files_count"] += 1
                 
     def _write_data(self, input_data, file_name):
@@ -90,10 +98,12 @@ class DataStore(object):
             json.dump(self._my_data, f, ensure_ascii= False, indent=2)
             print("Data written {0}".format(os.path.join(self._out_dir, (self._index_name + ".json"))))
         # write bad data
-        with open(os.path.join(self._out_dir, (self._index_name + "_bad.txt")), "w") as f:
-            f.write("bad_files:\n")
-            f.write(unicode(self._bad_data["bad_files"]))
-            f.write("\nbad_files_count: ")
-            f.write(str(self._bad_data["bad_files_count"]) + "\n")
+        with open(os.path.join(self._out_dir, (self._index_name + "_bad.txt")), "wb") as f:
+            f.write(b"bad_files:\n")
+            # f.write(str(self._bad_data["bad_files"]))
+            for data in self._bad_data["bad_files"]:
+                f.write(bytes(str(data).encode(encoding="utf-8")))
+                f.write(b"\n")
+            f.write(b"\nbad_files_count: ")
+            f.write(bytes(self._bad_data["bad_files_count"]) + b"\n")
             print("Data written {0}".format(os.path.join(self._out_dir, (self._index_name + "_bad.txt"))))
-        

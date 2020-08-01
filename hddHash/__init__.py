@@ -1,1 +1,1 @@
-import dataHash
+from . import dataHash
