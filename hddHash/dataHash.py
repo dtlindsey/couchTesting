@@ -74,6 +74,8 @@ class DataStore(object):
                     else:
                         # print(dirs)
                         for dir in dirs:
+                            if ":" in dir or dir.startswith("_"):
+                                print("*************************", os.path.join(base_path, file))
                             new_path = os.path.abspath(os.path.normpath(os.path.join(base_path, dir)))
                             # print("Checking new dir",new_path)
                             try:
